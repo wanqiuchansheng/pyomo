@@ -85,6 +85,9 @@ class GurobiDirect(DirectSolver):
         self._capabilities.sos1 = True
         self._capabilities.sos2 = True
 
+        self._callback = None
+        self._callback_func = None
+
     def _apply_solver(self):
         for var in self._pyomo_model.component_data_objects(ctype=pyomo.core.base.var.Var, descend_into=True,
                                                             active=None, sort=False):
@@ -121,7 +124,7 @@ class GurobiDirect(DirectSolver):
                 if re.match(suffix, "dual"):
                     self._solver_model.setParam(self._gurobipy.GRB.Param.QCPDual, 1)
 
-        self._solver_model.optimize()
+        self._solver_model.optimize(self._callback)
 
         self._solver_model.setParam('LogFile', 'default')
 
