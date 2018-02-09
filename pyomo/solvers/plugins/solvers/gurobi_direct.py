@@ -651,7 +651,7 @@ class GurobiDirect(DirectSolver):
             vars_to_load = var_map.keys()
 
         gurobi_vars_to_load = [var_map[pyomo_var] for pyomo_var in vars_to_load]
-        vals = self._solver_model.getAttr("X", gurobi_vars_to_load)
+        vals = self._solver_model.getAttr("Xn", gurobi_vars_to_load)
 
         for var, val in zip(vars_to_load, vals):
             if ref_vars[var] > 0:
