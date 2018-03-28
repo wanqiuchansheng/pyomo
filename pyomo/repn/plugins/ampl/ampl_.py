@@ -794,16 +794,19 @@ class ProblemWriter_nl(AbstractProblemWriter):
         all_blocks_list = list(model.block_data_objects(active=True, sort=sorter))
 
         # create a deterministic var labeling
-        cntr = 0
-        for block in all_blocks_list:
-            vars_counter = tuple(enumerate(
-                block.component_data_objects(Var,
-                                             active=True,
-                                             sort=sorter,
-                                             descend_into=False),
-                cntr))
-            cntr += len(vars_counter)
-            Vars_dict.update(vars_counter)
+        Vars_dict = dict( enumerate( model.component_data_objects(
+                    Var, sort=sorter) ) )
+        cntr = len(Vars_dict)
+        # cntr = 0
+        # for block in all_blocks_list:
+        #     vars_counter = tuple(enumerate(
+        #         block.component_data_objects(Var,
+        #                                      active=True,
+        #                                      sort=sorter,
+        #                                      descend_into=False),
+        #         cntr))
+        #     cntr += len(vars_counter)
+        #     Vars_dict.update(vars_counter)
         self._varID_map = dict((id(val),key) for key,val in iteritems(Vars_dict))
         self_varID_map = self._varID_map
         # Use to label the rest of the components (which we will not encounter twice)
@@ -944,6 +947,11 @@ class ProblemWriter_nl(AbstractProblemWriter):
                         block_ampl_repn[constraint_data] = ampl_repn
                     else:
                         ampl_repn = block_ampl_repn[constraint_data]
+
+                if (not constraint_data.has_lb()) and \
+                   (not constraint_data.has_ub()):
+                    assert not constraint_data.equality
+                    continue  # non-binding, so skip
 
                 ### GAH: Even if this is fixed, it is still useful to
                 ###      write out these types of constraints
