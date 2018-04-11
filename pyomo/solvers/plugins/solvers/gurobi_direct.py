@@ -468,6 +468,9 @@ class GurobiDirect(DirectSolver):
                 logger.warning("Cannot get duals for MIP.")
             extract_reduced_costs = False
             extract_duals = False
+            use_solution_number = True
+        else:
+            use_solution_number = False
 
         self.results = SolverResults()
         soln = Solution()
@@ -635,7 +638,10 @@ class GurobiDirect(DirectSolver):
 
                 gurobi_vars = self._solver_model.getVars()
                 gurobi_vars = list(set(gurobi_vars).intersection(set(self._pyomo_var_to_solver_var_map.values())))
-                var_vals = self._solver_model.getAttr("X", gurobi_vars)
+                if use_solution_number:
+                    var_vals = self._solver_model.getAttr("Xn", gurobi_vars)
+                else:
+                    var_vals = self._solver_model.getAttr("X", gurobi_vars)
                 names = self._solver_model.getAttr("VarName", gurobi_vars)
                 for gurobi_var, val, name in zip(gurobi_vars, var_vals, names):
                     pyomo_var = self._solver_var_to_pyomo_var_map[gurobi_var]
@@ -730,7 +736,10 @@ class GurobiDirect(DirectSolver):
             vars_to_load = var_map.keys()
 
         gurobi_vars_to_load = [var_map[pyomo_var] for pyomo_var in vars_to_load]
-        vals = self._solver_model.getAttr("Xn", gurobi_vars_to_load)
+        if self._solver_model.getAttr(self._gurobipy.GRB.Attr.IsMIP):
+            vals = self._solver_model.getAttr("Xn", gurobi_vars_to_load)
+        else:
+            vals = self._solver_model.getAttr("X", gurobi_vars_to_load)
 
         for var, val in zip(vars_to_load, vals):
             if ref_vars[var] > 0:
@@ -738,6 +747,9 @@ class GurobiDirect(DirectSolver):
                 var.value = val
 
     def _load_rc(self, vars_to_load=None):
+        if self._solver_model.getAttr(self._gurobipy.GRB.Attr.IsMIP):
+            logger.warning("Cannot get reduced costs for MIP.")
+            return
         if not hasattr(self._pyomo_model, 'rc'):
             self._pyomo_model.rc = Suffix(direction=Suffix.IMPORT)
         var_map = self._pyomo_var_to_solver_var_map
@@ -754,6 +766,9 @@ class GurobiDirect(DirectSolver):
                 rc[var] = val
 
     def _load_duals(self, cons_to_load=None):
+        if self._solver_model.getAttr(self._gurobipy.GRB.Attr.IsMIP):
+            logger.warning("Cannot get duals for MIP.")
+            return
         if not hasattr(self._pyomo_model, 'dual'):
             self._pyomo_model.dual = Suffix(direction=Suffix.IMPORT)
         con_map = self._pyomo_con_to_solver_con_map
