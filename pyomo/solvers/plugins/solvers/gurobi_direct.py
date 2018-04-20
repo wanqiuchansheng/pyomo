@@ -155,6 +155,7 @@ class GurobiDirect(DirectSolver):
         integer_vars = ComponentSet()
         if 'relax_integrality' in self.options:
             if self.options['relax_integrality']:
+                self._solver_model.update()
                 for v in self._solver_model.getVars():
                     if v.vtype == self._gurobipy.GRB.BINARY:
                         binary_vars.add(v)
@@ -162,7 +163,6 @@ class GurobiDirect(DirectSolver):
                     elif v.vtype == self._gurobipy.GRB.INTEGER:
                         integer_vars.add(v)
                         v.vtype = self._gurobipy.GRB.CONTINUOUS
-                self._solver_model.update()
 
         if self._version_major >= 5:
             for suffix in self._suffixes:
