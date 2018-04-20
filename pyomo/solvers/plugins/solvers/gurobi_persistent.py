@@ -143,7 +143,7 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
                              ' the remove_constraint and add_constraint methods.'.format(attr))
         try:
             self._pyomo_con_to_solver_con_map[con].setAttr(attr, val)
-        except self._gurobipy.GurobiError:
+        except (self._gurobipy.GurobiError, AttributeError):
             self._solver_model.update()
             self._pyomo_con_to_solver_con_map[con].setAttr(attr, val)
 
@@ -177,7 +177,7 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
                              ' the set_objective method.')
         try:
             self._pyomo_var_to_solver_var_map[var].setAttr(attr, val)
-        except self._gurobipy.GurobiError:
+        except (self._gurobipy.GurobiError, AttributeError):
             self._solver_model.update()
             self._pyomo_var_to_solver_var_map[var].setAttr(attr, val)
 
@@ -282,7 +282,7 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
         """
         try:
             return self._solver_model.getAttr(attr)
-        except self._gurobipy.GurobiError:
+        except (self._gurobipy.GurobiError, AttributeError):
             self._solver_model.update()
             return self._solver_model.getAttr(attr)
 
@@ -325,7 +325,7 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
         """
         try:
             return self._pyomo_var_to_solver_var_map[var].getAttr(attr)
-        except self._gurobipy.GurobiError:
+        except (self._gurobipy.GurobiError, AttributeError):
             self._solver_model.update()
             return self._pyomo_var_to_solver_var_map[var].getAttr(attr)
 
@@ -355,7 +355,7 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
         """
         try:
             return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
-        except self._gurobipy.GurobiError:
+        except (self._gurobipy.GurobiError, AttributeError):
             self._solver_model.update()
             return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
 
@@ -374,7 +374,7 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
         """
         try:
             return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
-        except self._gurobipy.GurobiError:
+        except (self._gurobipy.GurobiError, AttributeError):
             self._solver_model.update()
             return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
 
@@ -398,7 +398,7 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
         """
         try:
             return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
-        except self._gurobipy.GurobiError:
+        except (self._gurobipy.GurobiError, AttributeError):
             self._solver_model.update()
             return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
 
