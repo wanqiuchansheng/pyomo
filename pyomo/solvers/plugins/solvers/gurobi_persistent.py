@@ -120,7 +120,7 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
         """
         self._solver_model.write(filename)
 
-    def set_linar_constraint_attr(self, con, attr, val):
+    def set_linear_constraint_attr(self, con, attr, val):
         """
         Set the value of an attribute on a gurobi linear constraint.
 
@@ -141,7 +141,11 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
             raise ValueError('Linear constraint attr {0} cannot be set with' +
                              ' the set_linear_constraint_attr method. Please use' +
                              ' the remove_constraint and add_constraint methods.'.format(attr))
-        self._pyomo_con_to_solver_con_map[con].setAttr(attr, val)
+        try:
+            self._pyomo_con_to_solver_con_map[con].setAttr(attr, val)
+        except self._gurobipy.GurobiError:
+            self._solver_model.update()
+            self._pyomo_con_to_solver_con_map[con].setAttr(attr, val)
 
     def set_var_attr(self, var, attr, val):
         """
@@ -171,13 +175,17 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
             raise ValueError('Var attr Obj cannot be set with' +
                              ' the set_var_attr method. Please use' +
                              ' the set_objective method.')
-        self._pyomo_var_to_solver_var_map[var].setAttr(attr, val)
+        try:
+            self._pyomo_var_to_solver_var_map[var].setAttr(attr, val)
+        except self._gurobipy.GurobiError:
+            self._solver_model.update()
+            self._pyomo_var_to_solver_var_map[var].setAttr(attr, val)
 
     def get_model_attr(self, attr):
         """
-        Get the value of an attribute on the gurobi model.
+        Get the value of an attribute on the Gurobi model.
 
-        Paramaters
+        Parameters
         ----------
         attr: str
             The attribute to get. See Gurobi documentation for descriptions of the attributes.
@@ -272,7 +280,11 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
                 IntVioIndex
                 IntVioSum
         """
-        return self._solver_model.getAttr(attr)
+        try:
+            return self._solver_model.getAttr(attr)
+        except self._gurobipy.GurobiError:
+            self._solver_model.update()
+            return self._solver_model.getAttr(attr)
 
     def get_var_attr(self, var, attr):
         """
@@ -311,7 +323,11 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
                 SAUBUp
                 UnbdRay
         """
-        return self._pyomo_var_to_solver_var_map[var].getAttr(attr)
+        try:
+            return self._pyomo_var_to_solver_var_map[var].getAttr(attr)
+        except self._gurobipy.GurobiError:
+            self._solver_model.update()
+            return self._pyomo_var_to_solver_var_map[var].getAttr(attr)
 
     def get_linear_constraint_attr(self, con, attr):
         """
@@ -337,7 +353,11 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
                 SARHSUp
                 FarkasDual
         """
-        return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
+        try:
+            return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
+        except self._gurobipy.GurobiError:
+            self._solver_model.update()
+            return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
 
     def get_sos_attr(self, con, attr):
         """
@@ -352,7 +372,11 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
             The attribute to get. Options are:
                 IISSOS
         """
-        return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
+        try:
+            return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
+        except self._gurobipy.GurobiError:
+            self._solver_model.update()
+            return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
 
     def get_quadratic_constraint_attr(self, con, attr):
         """
@@ -372,7 +396,11 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
                 QCSlack
                 IISQConstr
         """
-        return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
+        try:
+            return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
+        except self._gurobipy.GurobiError:
+            self._solver_model.update()
+            return self._pyomo_con_to_solver_con_map[con].getAttr(attr)
 
     def set_gurobi_param(self, param, val):
         """
@@ -572,3 +600,6 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
 
     def cbUseSolution(self):
         return self._solver_model.cbUseSolution()
+
+    def update(self):
+        self._solver_model.update()
