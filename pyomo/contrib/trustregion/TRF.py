@@ -11,6 +11,7 @@ from pyomo.contrib.trustregion.helper import cloneXYZ, packXYZ, minIgnoreNone, m
 from pyomo.contrib.trustregion.Logger import IterLog, Logger
 from pyomo.contrib.trustregion.PyomoInterface import PyomoInterface, ROMType
 
+from pyomo.util.config import ConfigBlock
 
 
 def TRF(m,eflist):
@@ -30,6 +31,8 @@ def TRF(m,eflist):
     in a block named "tR" TODO: reverse the transformation.
     """
 
+    print('dmv')
+    CONFIG.display('all')
 
     logger = Logger()
     filteR = Filter()
@@ -37,9 +40,12 @@ def TRF(m,eflist):
     x, y, z = problem.getInitialValue()
 
 
-    trustRadius = TRUST_RADIUS
-    sampleRadius = SAMPLE_RADIUS
-    sampleregion_yn = SAMPLEREGION_YN
+    trustRadius = CONFIG.get('trust radius').value()
+    sampleRadius = CONFIG.get('sample radius').value()
+    sampleregion_yn = CONFIG.get('sample region').value()
+    
+
+
     iteration = -1
 
     romParam, yr = problem.buildROM(x, sampleRadius)
@@ -52,12 +58,12 @@ def TRF(m,eflist):
     objk = problem.evaluateObj(x, y, z)
 
     while True:
-        if(iteration>=0):
+        if iteration >= 0:
             logger.printIteration(iteration)
             #print(xk)
         # increment iteration counter
         iteration = iteration + 1
-        if(iteration > MAXIT):
+        if iteration > CONFIG.get('max it').value():
             print("EXIT: Maxmium iterations\n")
             break
 
@@ -68,15 +74,18 @@ def TRF(m,eflist):
 
         # Keep Sample Region within Trust Region
         if trustRadius < sampleRadius:
-            sampleRadius = max(SR_ADJUST * trustRadius, DELTMIN)
+            sampleRadius = max(CONFIG.get('sample radius adjust').value() * 
+                                   trustRadius, 
+                               CONFIG.get('delta min').value())
             rebuildROM = True
 
         #Generate a RM r_k (x) that is κ-fully linear on sigma k
         if(rebuildROM):
+            #TODO: Ask Jonathan what variable 1e-3 should be
             if trustRadius < 1e-3:
                 problem.romtype = ROMType.linear
             else:
-                problem.romtype = DEFAULT_ROMTYPE
+                problem.romtype = CONFIG.get('reduced model type').value()
 
             romParam, yr = problem.buildROM(x, sampleRadius)
             #print(romParam)
@@ -94,41 +103,54 @@ def TRF(m,eflist):
         logger.newIter(iteration,xk,yk,zk,thetak,objk,chik)
 
         # Check for Termination
-        if thetak < EP_I and chik < EP_CHI and sampleRadius < EP_DELT:
+        if (thetak < CONFIG.get('ep i').value() and
+            chik < CONFIG.get('ep chi').value() and 
+            sampleRadius < CONFIG.get('ep delta').value()):
             print("EXIT: OPTIMAL SOLUTION FOUND")
             break
 
         # If trust region very small and no progress is being made, terminate
         # The following condition must hold for two consecutive iterations.
-        if trustRadius <= DELTMIN and thetak < EP_I:
+        if (trustRadius <= CONFIG.get('delta min').value() and 
+            thetak < CONFIG.get('ep i').value()):
             if subopt_flag:
                 print("EXIT: FEASIBLE SOLUTION FOUND ")
                 break
             else:
                 subopt_flag = True
         else:
-            # This condition holds for iteration 0, which will declare the boolean subopt_flag
+            # This condition holds for iteration 0, which will declare the
+            # boolean subopt_flag
             subopt_flag = False
-
 
         # New criticality phase
         if not sampleregion_yn:
             sampleRadius = trustRadius/2.0
-            if sampleRadius > chik * CRITICALITY_CHECK:
+            if sampleRadius > chik * CONFIG.get('criticality check').value():
                 sampleRadius = sampleRadius/10.0
             trustRadius = sampleRadius*2
         else:
-            sampleRadius = max(min(sampleRadius,chik*CRITICALITY_CHECK),DELTMIN)
+            sampleRadius = max(
+                min(sampleRadius, 
+                    chik * CONFIG.get('criticality check').value()),
+                CONFIG.get('delta min').value())
 
         logger.setCurIter(trustRadius=trustRadius,sampleRadius=sampleRadius)
 
-        # Compatibility Check
-        radius = max(KAPPA_DELTA * trustRadius * \
-            min(1, KAPPA_MU * pow(trustRadius, MU)),DELTMIN)
+        # Compatibility Check (Definition 2)
+        # radius=max(kappa_delta*trustRadius*min(1,kappa_mu*trustRadius**mu), 
+        #            delta_min)
+        radius = max(CONFIG.get('kappa delta').value() * 
+                     trustRadius *
+                     min(1, 
+                         CONFIG.get('kappa mu').value() * 
+                         pow(trustRadius,CONFIG.get('mu').value())),
+                     CONFIG.get('delta min').value())
 
         try:
             flag, obj = problem.compatibilityCheck(
-                x, y, z, xk, yk, zk, romParam, radius, COMPAT_PENALTY)
+                x, y, z, xk, yk, zk, romParam, radius, 
+                CONFIG.get('compatibility penalty').value())
         except:
             print("Compatibility check failed, unknown error")
             raise
@@ -137,22 +159,28 @@ def TRF(m,eflist):
             raise Exception("Compatibility check fails!\n")
 
 
-
-        if(obj - COMPAT_PENALTY * (norm(x - xk, 2)**2 + norm(z - zk, 2)**2) > EP_COMPAT):
+        theNorm = norm(x - xk, 2)**2 + norm(z - zk, 2)**2
+        if (obj - CONFIG.get('compatibility penalty').value() * theNorm > 
+            CONFIG.get('ep compatibility').value()):
             # Restoration stepNorm
             yr = problem.evaluateDx(x)
             theta = norm(yr - y, 1)
-
+            
             logger.iterlog.restoration = True
-
-            fe = FilterElement(objk - GAMMA_F * thetak, (1 - GAMMA_THETA) * thetak)
+            
+            fe = FilterElement(
+                objk - CONFIG.get('gamma f').value() * thetak,
+                (1 - CONFIG.get('gamma theta').value()) * thetak)
             filteR.addToFilter(fe)
-
-            rhok = 1 - (theta - EP_I)/max(thetak,EP_I)
-            if(rhok < ETA1):
-                trustRadius = max(GAMMA_C * trustRadius, DELTMIN)
-            elif (rhok >= ETA2):
-                trustRadius = min(GAMMA_E * trustRadius, RADIUS_MAX)
+            
+            rhok = 1 - ((theta - CONFIG.get('ep i').value()) /
+                        max(thetak, CONFIG.get('ep i').value()))
+            if rhok < CONFIG.get('eta1').value():
+                trustRadius = max(CONFIG.get('gamma c').value() * trustRadius,
+                                  CONFIG.get('delta min').value())
+            elif rhok >= CONFIG.get('eta2').value():
+                trustRadius = min(CONFIG.get('gamma e').value() * trustRadius,
+                                  CONFIG.get('radius max').value())
 
             obj = problem.evaluateObj(x, y, z)
 
@@ -162,7 +190,8 @@ def TRF(m,eflist):
         else:
 
             # Solve TRSP_k
-            flag, obj = problem.TRSPk(x, y, z, xk, yk, zk, romParam, trustRadius)
+            flag, obj = problem.TRSPk(x, y, z, xk, yk, zk, 
+                                      romParam, trustRadius)
             if not flag:
                 raise Exception("TRSPk fails!\n")
 
@@ -177,30 +206,42 @@ def TRF(m,eflist):
 
             if not filteR.checkAcceptable(fe) and iteration>0:
                 logger.iterlog.rejected = True
-                trustRadius = max(GAMMA_C * stepNorm, DELTMIN)
+                trustRadius = max(CONFIG.get('gamma c').value() * stepNorm, 
+                                  CONFIG.get('delta min').value())
                 rebuildROM = False
                 x, y, z = cloneXYZ(xk, yk, zk)
                 continue
 
             # Switching Condition and Trust Region update
-            if((objk - obj) >= KAPPA_THETA * pow(thetak, GAMMA_S) and thetak < THETA_MIN):
+            if (((objk - obj) >= CONFIG.get('kappa theta').value() * 
+                 pow(thetak, CONFIG.get('gamma s').value()))
+                and 
+                (thetak < CONFIG.get('theta min').value())):
                 logger.iterlog.fStep = True
 
-                trustRadius = min(max(GAMMA_E*stepNorm,trustRadius),RADIUS_MAX)
+                trustRadius = min(
+                    max(CONFIG.get('gamma e').value() * stepNorm, trustRadius),
+                    CONFIG.get('radius max').value())
 
             else:
                 logger.iterlog.thetaStep = True
 
                 fe = FilterElement(
-                    obj - GAMMA_F * theta, (1 - GAMMA_THETA) * theta)
+                    obj - CONFIG.get('gamma f').value() * theta,
+                    (1 - CONFIG.get('gamma theta').value()) * theta)
                 filteR.addToFilter(fe)
 
                 # Calculate rho for theta step trust region update
-                rhok = 1 - (theta - EP_I)/max(thetak,EP_I)
-                if(rhok < ETA1):
-                    trustRadius = max(GAMMA_C * stepNorm, DELTMIN)
-                elif (rhok >= ETA2):
-                    trustRadius = min(max(GAMMA_E * stepNorm,trustRadius), RADIUS_MAX)
+                rhok = 1 - ((theta - CONFIG.get('ep i').value()) / 
+                            max(thetak, CONFIG.get('ep i').value()))
+                if rhok < CONFIG.get('eta1').value():
+                    trustRadius = max(CONFIG.get('gamma c').value() * stepNorm,
+                                      CONFIG.get('delta min').value())
+                elif rhok >= CONFIG.get('eta2').value():
+                    trustRadius = min(
+                        max(CONFIG.get('gamma e').value() * stepNorm, 
+                            trustRadius), 
+                        CONFIG.get('radius max').value())
 
 
 

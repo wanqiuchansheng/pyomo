@@ -1,5 +1,5 @@
 from pyomo.contrib.trustregion.param import *
-
+from pyomo.util.config import ConfigBlock
 
 class FilterElement:
 
@@ -28,7 +28,7 @@ class Filter:
         self.filteR.append(x)
 
     def checkAcceptable(self, x):
-        if (x.infeasible > THETA_MAX):
+        if x.infeasible > CONFIG.get('theta max').value():
             return False
         for i in self.filteR:
             if (i.compare(x) == -1):
