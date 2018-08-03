@@ -11,10 +11,9 @@
 from pyomo.core.base.PyomoModel import ConcreteModel
 from pyomo.solvers.plugins.solvers.gurobi_direct import GurobiDirect
 from pyomo.solvers.plugins.solvers.persistent_solver import PersistentSolver
-from pyomo.util.plugin import alias
-from pyomo.core.kernel.numvalue import value, is_fixed
-from pyomo.repn import LinearCanonicalRepn
 import collections
+from pyomo.common.plugin import alias
+from pyomo.core.expr.numvalue import value, is_fixed
 
 
 class GurobiPersistent(PersistentSolver, GurobiDirect):
@@ -489,8 +488,6 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
         if con._linear_canonical_form:
             gurobi_expr, referenced_vars = self._get_expr_from_pyomo_repn(con.canonical_form(),
                                                                           self._max_constraint_degree)
-        elif isinstance(con, LinearCanonicalRepn):
-            gurobi_expr, referenced_vars = self._get_expr_from_pyomo_repn(con, self._max_constraint_degree)
         else:
             gurobi_expr, referenced_vars = self._get_expr_from_pyomo_expr(con.body, self._max_constraint_degree)
 
@@ -566,8 +563,6 @@ class GurobiPersistent(PersistentSolver, GurobiDirect):
         if con._linear_canonical_form:
             gurobi_expr, referenced_vars = self._get_expr_from_pyomo_repn(con.canonical_form(),
                                                                           self._max_constraint_degree)
-        elif isinstance(con, LinearCanonicalRepn):
-            gurobi_expr, referenced_vars = self._get_expr_from_pyomo_repn(con, self._max_constraint_degree)
         else:
             gurobi_expr, referenced_vars = self._get_expr_from_pyomo_expr(con.body, self._max_constraint_degree)
 
